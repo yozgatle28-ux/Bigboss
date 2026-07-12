@@ -1,0 +1,53 @@
+name: Build APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip project (herhangi bir .zip dosyasını bulur ve açar)
+        run: |
+          ZIPFILE=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+          if [ -n "$ZIPFILE" ]; then
+            echo "Bulunan zip: $ZIPFILE"
+            unzip -o "$ZIPFILE"
+          else
+            echo "Zip dosyası bulunamadı, repo içeriği zaten açık olabilir."
+          fi
+          ls -la
+
+      - name: Proje kökünü bul (bigboss/ alt klasörü var mı, yoksa repo kökü mü)
+        id: locate
+        run: |
+          if [ -f "bigboss/build.gradle" ] || [ -f "bigboss/build.gradle.kts" ]; then
+            echo "Proje 'bigboss/' alt klasöründe bulundu."
+            echo "dir=bigboss" >> "$GITHUB_OUTPUT"
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "Proje repo KÖKÜNDE bulundu (bigboss/ alt klasörü yok)."
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          else
+            echo "HATA: Ne 'bigboss/build.gradle' ne de kökte 'build.gradle' bulunamadı."
+            echo "Repo içeriği:"
+            find . -maxdepth 3 -not -path "*/.git/*"
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Gradle 8.7
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -P /tmp
+          sudo unzip -q -d /opt/gradle
